@@ -50,6 +50,7 @@ class PGM(nn.Module):
         proposals = []
         judge_pos = (pos_mask > 0).cpu().numpy()
         N_pos = int(np.sum(judge_pos))
+        anc = anc.view(-1,3)
         for pts, center, is_pos,number in zip(anchor_points, anc,judge_pos,pos_number):  # to each anchor
             if is_pos:
                 pts.requires_grad = True
@@ -57,8 +58,8 @@ class PGM(nn.Module):
                 pred_reg, pred_cls = self.model2(pts)
                 if self.training:
                     # compute loss
-                    targets = compute_target(ground_truth,center,self.cls)
-                    loss_reg += self.reg_loss(pred_reg,pred_cls,targets)
+                    targets = compute_target(ground_truth,center,number,self.cls)
+                    loss_reg = loss_reg + self.reg_loss(pred_reg,pred_cls,targets)
                 pp = compute_proposal(pred_reg, pred_cls, center, self.cls)
                 proposals.append(pp)
         if self.training and N_pos:

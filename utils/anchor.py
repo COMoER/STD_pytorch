@@ -60,7 +60,7 @@ def assign_anchor(G, center_mask, points):
         mask = torch.sum(points_iou > 0.55, dim=1)  # A pos or neg
         assign_number = torch.full(torch.Size((A,)), -1, dtype=torch.int, device=mask.device)
         if mask[mask>0].shape[0] > 0:
-            assign_number[mask > 0] = torch.argmax(points_iou[mask>0],dim = 1)  # positive ones
+            assign_number[mask > 0] = torch.argmax(points_iou[mask>0],dim = 1).to(torch.int)  # positive ones
         # assign = cls[torch.argmax(points_iou,dim = -1)]
     else:
         A= len(center_mask)
@@ -79,7 +79,7 @@ def NMS(score,points,cls):
     xy = points[:,:,[0,2]]
     bbox = torch.cat([xy-radius,xy+radius],dim = 2)
     mask = torchvision.ops.nms(bbox[0],score[:,:,0][0],iou_thres)
-    nms_ps = points[:,mask,:3]
+    nms_ps = points[:,mask,:3].clone()
 
     # assume single batch
     # anchor_per_cls.append((nms_ps,radius))
@@ -98,7 +98,7 @@ def align_anchor(anchors,radius,points,feature):
     feature = feature
     dist = square_distance(src,anchors) # B,N,M
     B,N,M = dist.shape
-    dist = dist.view(B,M,N)
+    dist = dist.permute(0,2,1)
     points_per_anchor = []
     mask_per_anchor = []
     for anchor_id in range(M):

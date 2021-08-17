@@ -27,10 +27,13 @@ def main():
     # create dir
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
     experiment_dir = Path('/data/usr/zhengyu/exp')
+
     experiment_dir.mkdir(exist_ok=True)
 
     experiment_dir = experiment_dir.joinpath('STD')
     experiment_dir.mkdir(exist_ok=True)
+
+    exp_dir = experiment_dir
 
     experiment_dir = experiment_dir.joinpath(timestr)
     experiment_dir.mkdir(exist_ok=True)
@@ -51,12 +54,14 @@ def main():
     logger.addHandler(file_handler)
 
     # torch.distributed.init_process_group(backend="nccl")
-    model = PGM(0).cuda()
+    model = nn.DataParallel(PGM(0).cuda())
 
     # model = nn.parallel.DistributedDataParallel(model)
 
+    last_exp = "2021-08-16_18-48"
+
     try:
-        checkpoint = torch.load(str(experiment_dir) + '/checkpoints/best.pt')
+        checkpoint = torch.load(str(exp_dir.joinpath(last_exp)) + '/checkpoints/best.pt')
         start_epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['model_state_dict'])
         log_string('Use pretrain model')
@@ -85,9 +90,9 @@ def main():
         log_string('**** Epoch %d/%s ****' % (epoch+1,EPOCH))
 
         # adjust lr
-        if epoch == 80:
-            for param_group in optimizer.param_group:
-                param_group['lr'] = AFTER_LR
+        if epoch == 0:
+            for p in optimizer.param_groups:
+                p['lr']  = AFTER_LR
         loss_sum = 0
         proposal_num = 0
         for i, (points, target) in tqdm(enumerate(trainDataloader), total=len(trainDataloader), smoothing=0.9):
@@ -117,8 +122,16 @@ def main():
             torch.save(state, savepath)
             log_string('Saving model....')
 
-
-
+def detect(weights = "/data/usr/zhengyu/exp/STD/2021-08-16_23-22/checkpoints/best.pt"):
+    model = PGM(0).cuda()
+    checkpoint = torch.load(weights)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    data = pc_dataloader()
+    trainDataloader = DataLoader(data, batch_size=1, shuffle=True, collate_fn=std_collate_fn)
+    for points, target in trainDataloader:
+        model(points,target)
 
 if __name__ == '__main__':
     main()
+    # detect()

@@ -5,9 +5,37 @@ import torch.nn.functional as F
 
 
 bin_angle = 2*np.pi/12
-pre_defined_size = [[1.6,0.8,0.8],
-                    [1.6,0.8,1.6],
-                    [1.6,1.6,3.9]]
+pre_defined_size = [[1.6,1.6,3.9],
+                    [1.6,0.8,0.8],
+                    [1.6,0.8,1.6]]
+
+def in_side_numpy(src,center,size,rotate_y):
+    '''
+
+    src: N,4
+    label:G,9
+
+    return list of PointsPool input for each proposal
+    '''
+    src = src[:,:3]
+    # h = size[:,0] # y
+    # w = size[:,1] # z
+    # l = size[:,2] # x
+    ry = rotate_y
+    R = np.stack([np.cos(ry),0*ry,np.sin(ry),0*ry,np.ones(ry.shape),0*ry,
+                        -np.sin(ry),0*ry,np.cos(ry)],axis = 1).reshape((-1,3,3))
+
+    src = np.matmul(R.transpose((0,2,1)), (src.reshape(1,-1,3) - center.reshape(-1,1,3)).transpose((0,2,1))).transpose((0,2,1))  # G,N,3
+    points_per_g = []
+    for id in range(rotate_y.shape[0]):
+        h,w,l = size[id].T
+        src_p = src[id]
+        mask = np.logical_and(
+            np.logical_and(np.logical_and(src_p[ :, 0] <= l / 2,src_p[ :, 0] >= -l / 2),
+            np.logical_and((src_p[ :, 1] <= 0),(src_p[ :, 1] >= -h)))
+            ,np.logical_and((src_p[ :, 2] >= -w / 2),(src_p[ :, 2] <= w / 2))) # inside
+        points_per_g.append((R[id]@src_p[mask].T).T + center[id])
+    return points_per_g
 
 
 def in_side(src,feature,center,size,rotate_y,need_mask = False):
@@ -21,6 +49,8 @@ def in_side(src,feature,center,size,rotate_y,need_mask = False):
 
     return list of PointsPool input for each proposal
     '''
+    # p_per_g = in_side_numpy(src.cpu().numpy().reshape(-1,4),center.cpu().numpy(),size.cpu().numpy(),rotate_y.cpu().numpy())
+
     src = src[:,:,:3]
     # h = size[:,0] # y
     # w = size[:,1] # z
@@ -56,19 +86,21 @@ def in_side(src,feature,center,size,rotate_y,need_mask = False):
         return proposal_points,proposal_masks
     else:
         return proposal_points
-def compute_target(gt,center,cls_id):
+def compute_target(gt,center,number,cls_id):
     '''
-    :param gt: B,8
+    :param gt: B,G,9
     :param center: anchor center 3
+    :param number: the id of ground_truth
     :param cls_id:
     :return: targets B,8
     '''
+    gt = gt[:,number]
     cls = torch.floor((gt[:,6] + np.pi) / bin_angle).float()
     angle_reg = (gt[:,6] + np.pi) - cls*bin_angle
     l_reg = gt[:,:3] - center
     size = torch.from_numpy(np.float32(pre_defined_size[cls_id])).to(gt.device)
     size_reg = (gt[:,3:6] - size)/size
-    return torch.cat([l_reg,size_reg,cls,angle_reg],dim = 1)
+    return torch.cat([l_reg,size_reg,cls.view(-1,1),angle_reg.view(-1,1)],dim = 1)
 def compute_proposal(pred_reg,pred_cls,center,cls_id):
     '''
     :param pred_reg: N,3+3+1 first is for rotate_y second is for rotate_z

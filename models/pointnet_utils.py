@@ -9,9 +9,8 @@ class Conv(nn.Module):
     def __init__(self,in_channel,out_channel):
         super(Conv, self).__init__()
         self.conv = nn.Conv1d(in_channel,out_channel,1)
-        self.bn = nn.BatchNorm1d(out_channel)
     def forward(self,x):
-        return F.relu(self.bn(self.conv(x)))
+        return F.relu(self.conv(x))
 class PointNetEncoder(nn.Module):
     def __init__(self,in_channel = 131,k = 12):
         super(PointNetEncoder, self).__init__()

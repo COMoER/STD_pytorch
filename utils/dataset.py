@@ -4,8 +4,9 @@ import numpy as np
 import os
 import random
 SIZE = 200
-POINTS = 4096 # 4k
-torch.random.manual_seed(2021)
+POINTS = 8*1024 # 8k
+torch.random.manual_seed(0)
+np.random.seed(0)
 from tqdm import tqdm
 classes = ['Car','Pedestrian','Cyclist', 'Van', 'Truck', 'Person_sitting', 'Tram', 'Misc', 'DontCare']
 def convert_calib(calib_data):
