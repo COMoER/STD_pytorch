@@ -3,13 +3,13 @@ import cv2
 import os
 import torch
 from models.STD import PGM
-torch.random.manual_seed(0)
+import torch.nn as nn
 
 PC_DIR = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/"
 LABEL_DIR = "/data/kitti/KITTI/training/label_2/"
 IMAGE_DIR = "/data/kitti/KITTI/data_object_image_2/training/image_2/"
 CALIB_DIR = "/data/kitti/KITTI/training/calib/"
-POINTS = 16*1024 # 4k
+POINTS = 8*1024 # 4k
 
 classes = ['Car','Pedestrian','Cyclist', 'Van', 'Truck', 'Person_sitting', 'Tram', 'Misc', 'DontCare']
 
@@ -163,12 +163,12 @@ def drawBox3d(label,P,im,color = (0,0,255)):
     return im,bbox
 
 if __name__ == '__main__':
-    weights = "/data/usr/zhengyu/exp/STD/2021-08-16_23-22/checkpoints/best.pt"
+    weights = "/data/usr/zhengyu/exp/STD/2021-08-18_15-16/checkpoints/best.pt"
     model = PGM(0).cuda()
     checkpoint = torch.load(weights)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
-    for lidar_file in os.listdir(PC_DIR)[:50]:
+    for lidar_file in os.listdir(PC_DIR)[1000:]:
         # raw point cloud
         T_l,T_image2,T_02 = load_calib(CALIB_DIR+lidar_file.split('.')[0]+'.txt')
         im = cv2.imread(IMAGE_DIR+lidar_file.split('.')[0]+'.png')
@@ -218,6 +218,8 @@ if __name__ == '__main__':
         # using model to predict proposal
         pc = torch.from_numpy(pc_input).view(-1,4).to(torch.device('cuda:0'))
         proposals,_ = model(pc.view(1,-1,4),label_model.view(1,-1,9))
+        if len(proposals) == 0:
+            continue
         proposals = torch.cat(proposals,dim = 0).detach().cpu().numpy()
         proposals = np.concatenate([np.ones((proposals.shape[0],1)),proposals],axis = 1)
 

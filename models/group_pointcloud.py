@@ -9,52 +9,51 @@ def preprocess(points,proposals):
     proposals: P,8
     '''
     device = proposals.device
-    with torch.no_grad():
-        proposals_number = []
-        proposals_feature = []
-        for x,proposal in zip(points,proposals):
-            N,_ = x.shape
-            # first sample and voxelization , which don't require gradient
-            # when the points inside the proposal over 512, then sample to 512
-            if N > 512:
-                x = x[np.random.choice(range(N), 512)]
-            # voxelization 6*6*6
-            voxel_size = (proposal[3:6]) / 6
-            zero_start = proposal[3:6].clone()
-            zero_start[1] = zero_start[1]/2  # w
-            zero_start[2] = zero_start[2]/2  # l
-            # proposal [-l/2,l/2] [-w/2,w/2] [-h,0]
-            voxel_index = torch.floor(
-                (x[:, [1,2,0]] + zero_start) / voxel_size).to(torch.int) # N',(l_h,l_w,l_l)
+    proposals_number = []
+    proposals_feature = []
+    for x, proposal in zip(points, proposals):
+        N, _ = x.shape
+        # first sample and voxelization , which don't require gradient
+        # when the points inside the proposal over 512, then sample to 512
+        if N > 512:
+            x = x[np.random.choice(range(N), 512)]
+        # voxelization 6*6*6
+        voxel_size = (proposal[3:6]) / 6
+        zero_start = proposal[3:6].clone()
+        zero_start[1] = zero_start[1] / 2  # w
+        zero_start[2] = zero_start[2] / 2  # l
+        # proposal [-l/2,l/2] [-w/2,w/2] [-h,0]
+        voxel_index = torch.floor(
+            (x[:, [1, 2, 0]] + zero_start) / voxel_size).to(torch.int)  # N',(l_h,l_w,l_l)
 
-            # [K, 3] coordinate buffer as described in the paper
-            coordinate_buffer = torch.unique(voxel_index, dim = 0)
+        # [K, 3] coordinate buffer as described in the paper
+        coordinate_buffer = torch.unique(voxel_index, dim=0)
 
-            K = len(coordinate_buffer)
-            T = 35
+        K = len(coordinate_buffer)
+        T = 35
 
-            # [K, 1] store number of points in each voxel grid
-            number_buffer = torch.zeros(size = torch.Size((6*6*6,)),dtype = torch.int,device=device)
+        # [K, 1] store number of points in each voxel grid
+        number_buffer = torch.zeros(size=torch.Size((6 * 6 * 6,)), dtype=torch.int, device=device)
 
-            # [K, T, 131] feature buffer as described in the paper
-            feature_buffer = torch.zeros(size = torch.Size((6*6*6,T,131)),dtype = torch.float32,device=device)
+        # [K, T, 131] feature buffer as described in the paper
+        feature_buffer = torch.zeros(size=torch.Size((6 * 6 * 6, T, 131)), dtype=torch.float32, device=device)
 
-            # build a reverse index for coordinate buffer
-            index_buffer = {}
-            for i in range(K):
-                index = coordinate_buffer[i].cpu().numpy()
-                index_buffer[tuple(index)] = index[0]*6 + index[1]*6 + index[2]
+        # build a reverse index for coordinate buffer
+        index_buffer = {}
+        for i in range(K):
+            index = coordinate_buffer[i].cpu().numpy()
+            index_buffer[tuple(index)] = index[0] * 6 + index[1] * 6 + index[2]
 
-            for voxel, point in zip(voxel_index, x):
-                index = index_buffer[tuple(voxel.cpu().numpy())]
-                number = number_buffer[index]
-                if number < T:
-                    feature_buffer[index, number, :131] = point
-                    number_buffer[index] += 1
-            proposals_number.append(number_buffer)
-            proposals_feature.append(feature_buffer)
-        proposals_number = torch.stack(proposals_number,dim = 0) # B*216
-        proposals_feature = torch.stack(proposals_feature,dim = 0) # B*216*35*128
+        for voxel, point in zip(voxel_index, x):
+            index = index_buffer[tuple(voxel.cpu().numpy())]
+            number = number_buffer[index]
+            if number < T:
+                feature_buffer[index, number, :131] = point
+                number_buffer[index] += 1
+        proposals_number.append(number_buffer)
+        proposals_feature.append(feature_buffer)
+    proposals_number = torch.stack(proposals_number, dim=0)  # B*216
+    proposals_feature = torch.stack(proposals_feature, dim=0)  # B*216*35*128
     return proposals_number,proposals_feature
 
 

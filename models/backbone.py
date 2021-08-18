@@ -68,8 +68,11 @@ class PointNet(nn.Module):
         # cls_1
         self.fc4 = nn.Linear(512, 256)
         self.fc5 = nn.Linear(256, 12) # 12 bins
-        # self.bn3 = nn.BatchNorm1d(256)
 
+        # proposal_classification
+        self.fc6 = nn.Linear(512, 256)
+        self.fc7 = nn.Linear(256, 1) # 12 bins
+        # self.bn3 = nn.BatchNorm1d(256)
         self.dropout = nn.Dropout(p=0.4)
 
     def forward(self, x):
@@ -84,7 +87,10 @@ class PointNet(nn.Module):
         # cls
         x_cls = F.relu(self.dropout(self.fc4(x)))
         x_cls = self.fc5(x_cls)
-        return x_reg,x_cls
+        # score
+        x_p = F.relu(self.dropout(self.fc6(x)))
+        x_p = torch.sigmoid(self.fc7(x_p))
+        return x_p,x_reg,x_cls
 
 
 

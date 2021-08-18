@@ -2,6 +2,7 @@ import torch
 import torchvision
 from models.pointnet2_utils import square_distance
 from models.common import in_side
+from utils.loss import get_bbox
 import cv2
 import numpy as np
 
@@ -11,6 +12,7 @@ receptive_region_radius = {  # the unit is meter
     'cyclist': 1
 }
 iou_thres = 0.1
+ARCHOR_THRES = 0.3
 
 def float2BEV(bbox):
     bbox_numpy = bbox.cpu().numpy().reshape(-1, 4)
@@ -56,8 +58,8 @@ def assign_anchor(G, center_mask, points):
         sum_mask = G_masks + center_mask  # 2 is both 0 is neither
         # cls = G[:,:,0].view(-1)
         points_iou = torch.sum(sum_mask == 2, dim=-1).float() / torch.sum(sum_mask > 0, dim=-1).float()
-        # assignment of anchor, first the iou must over 0.55 and
-        mask = torch.sum(points_iou > 0.55, dim=1)  # A pos or neg
+        # assignment of anchor, first the iou must over ANCHOR_THRES
+        mask = torch.sum(points_iou > ARCHOR_THRES, dim=1)  # A pos or neg
         assign_number = torch.full(torch.Size((A,)), -1, dtype=torch.int, device=mask.device)
         if mask[mask>0].shape[0] > 0:
             assign_number[mask > 0] = torch.argmax(points_iou[mask>0],dim = 1).to(torch.int)  # positive ones
@@ -83,7 +85,18 @@ def NMS(score,points,cls):
 
     # assume single batch
     # anchor_per_cls.append((nms_ps,radius))
-    return nms_ps,radius,score[:,mask]
+    return nms_ps,radius
+
+def NMS_proposal(proposals,score):
+    '''
+    score P
+    proposals P,7
+    '''
+
+    bbox = get_bbox(proposals[:,:3],proposals[:,3:6],proposals[:,6])[:,[0,1,3,4]] # bbox on BEV
+    mask = torchvision.ops.nms(bbox,score,iou_thres)
+    nms_ps = proposals[mask]
+    return nms_ps
 
 
 def align_anchor(anchors,radius,points,feature):

@@ -5,7 +5,7 @@ import torch.distributed
 
 from utils.dataset import pc_dataloader,std_collate_fn
 from torch.utils.data.dataloader import DataLoader
-from models.STD import PGM
+from models.STD import PGM,STD
 
 import os
 import datetime
@@ -29,7 +29,7 @@ def main():
 
     experiment_dir.mkdir(exist_ok=True)
 
-    experiment_dir = experiment_dir.joinpath('STD')
+    experiment_dir = experiment_dir.joinpath('STD_SECOND')
     experiment_dir.mkdir(exist_ok=True)
 
     exp_dir = experiment_dir
@@ -52,8 +52,14 @@ def main():
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
+    # load first stage pt
+    frozen_model = PGM(0).cuda().eval()
+    first_stage_path = "2021-08-18_15-16"
+    checkpoint = torch.load( '/data/usr/zhengyu/exp/STD/{0}/checkpoints/best.pt'.format(first_stage_path))
+    frozen_model.load_state_dict(checkpoint['model_state_dict'])
+
     # torch.distributed.init_process_group(backend="nccl")
-    model = PGM(0).cuda()
+    model = STD().cuda()
 
     # model = nn.parallel.DistributedDataParallel(model)
 
@@ -69,7 +75,7 @@ def main():
         start_epoch = 0
 
     INTIAL_LR = 0.001
-    AFTER_LR = 0.0001
+    DELAY_RATE = 0.1
 
     optimizer = torch.optim.Adam(
             model.parameters(),
@@ -78,36 +84,42 @@ def main():
             eps=1e-08
         )
 
-    EPOCH = 100
-
-    best_loss = 0
+    EPOCH = 50
 
     data = pc_dataloader()
     trainDataloader = DataLoader(data, batch_size=1, shuffle=True, collate_fn=std_collate_fn)
+
+    cls_loss_sum = 0
+    box_loss_sum = 0
+    iou_loss_sum = 0
+    closs_sum = 0
 
     for epoch in range(start_epoch, EPOCH):
         log_string('**** Epoch %d/%s ****' % (epoch+1,EPOCH))
 
         # adjust lr
-        if epoch == 80:
+        if epoch >= 39 and (epoch+1) % 5 == 0:
             for p in optimizer.param_groups:
-                p['lr']  = AFTER_LR
+                p['lr']  *= DELAY_RATE
         loss_sum = 0
-        proposal_num = 0
         for i, (points, target) in tqdm(enumerate(trainDataloader), total=len(trainDataloader), smoothing=0.9):
             optimizer.zero_grad()
 
-            proposals,features,loss = model(points,target)
+            proposals,features = frozen_model(points)
+            bbox,cls_loss,box_loss,iou_loss,closs = model(proposals,points,features,target)
+            loss = cls_loss + box_loss + iou_loss + closs
             loss.backward()
             optimizer.step()
+            cls_loss_sum += cls_loss
+            box_loss_sum += box_loss
+            iou_loss_sum += iou_loss
+            closs_sum += closs
 
 
-
-            loss_sum += loss
-            proposal_num += len(proposals)
-
-        log_string('Training mean loss: %f' % (loss_sum / len(trainDataloader)))
-        log_string("Training output proposal: %f"%(proposal_num/len(trainDataloader)))
+        log_string('Training mean cls_loss: %f' % (cls_loss_sum / len(trainDataloader)))
+        log_string('Training mean box_loss: %f' % (box_loss_sum / len(trainDataloader)))
+        log_string('Training mean iou_loss: %f' % (iou_loss_sum / len(trainDataloader)))
+        log_string('Training mean closs: %f' % (closs_sum / len(trainDataloader)))
 
         if epoch % 5 == 0:
             logger.info('Save model...')
@@ -121,5 +133,7 @@ def main():
             torch.save(state, savepath)
             log_string('Saving model....')
 
+
 if __name__ == '__main__':
     main()
+    # detect()
