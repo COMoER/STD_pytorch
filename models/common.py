@@ -195,7 +195,7 @@ class IOU_branch(nn.Module):
 
         self.dropout = nn.Dropout(p=0.4)
     def forward(self, x):
-        self.feature(x)
+        x = self.feature(x)
         # iou score
         x = F.relu(self.dropout(self.fc1(x)))
         x = self.fc2(x)

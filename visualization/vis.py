@@ -163,12 +163,12 @@ def drawBox3d(label,P,im,color = (0,0,255)):
     return im,bbox
 
 if __name__ == '__main__':
-    weights = "/data/usr/zhengyu/exp/STD/2021-08-18_15-16/checkpoints/best.pt"
+    weights = "/data/usr/zhengyu/exp/STD/2021-08-18_19-36/checkpoints/best.pt"
     model = PGM(0).cuda()
     checkpoint = torch.load(weights)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
-    for lidar_file in os.listdir(PC_DIR)[1000:]:
+    for lidar_file in os.listdir(PC_DIR)[2000:]:
         # raw point cloud
         T_l,T_image2,T_02 = load_calib(CALIB_DIR+lidar_file.split('.')[0]+'.txt')
         im = cv2.imread(IMAGE_DIR+lidar_file.split('.')[0]+'.png')
@@ -218,9 +218,7 @@ if __name__ == '__main__':
         # using model to predict proposal
         pc = torch.from_numpy(pc_input).view(-1,4).to(torch.device('cuda:0'))
         proposals,_ = model(pc.view(1,-1,4),label_model.view(1,-1,9))
-        if len(proposals) == 0:
-            continue
-        proposals = torch.cat(proposals,dim = 0).detach().cpu().numpy()
+        proposals = proposals.detach().cpu().numpy()
         proposals = np.concatenate([np.ones((proposals.shape[0],1)),proposals],axis = 1)
 
         im,p_bbox = drawBox3d(proposals,T_02,im,(255,0,0))

@@ -41,9 +41,9 @@ class pc_dataloader(Dataset):
     def __init__(self,location = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/",
                  label_location = "/data/kitti/KITTI/training/label_2/",
                  calib_location = "/data/kitti/KITTI/training/calib/",
-                    device = ''):
+                    device = 0):
         super(pc_dataloader,self).__init__()
-        self._device = torch.device("cuda:0") if device == '' else torch.device('cpu')
+        self._device = torch.device('cuda',device)
 
         print("[INFO] loading Dataset")
         self._data = []

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torchvision
 
 def smooth_l1(deltas, targets, sigma = 3.0):
+    assert deltas.ndimension() == targets.ndimension()
     # Reference: https://mohitjainweb.files.wordpress.com/2018/03/smoothl1loss.pdf
     sigma2 = sigma * sigma
     diffs = deltas - targets
@@ -30,6 +31,7 @@ class BCEFocalLoss(nn.Module):
         self.reduction = reduction
 
     def forward(self, x, target):
+        assert x.ndimension() == target.ndimension()
         loss = - self.alpha * (1. - x) ** self.gamma * target * torch.log(x)\
                - (1. - self.alpha) * x ** self.gamma * (1. - target) * torch.log(1. - x)
 
@@ -45,6 +47,8 @@ class BCE(nn.Module):
         self.reduction = reduction
 
     def forward(self, x, target):
+        assert x.ndimension() == target.ndimension()
+
         loss = - target * torch.log(x)\
                - (1. - target) * torch.log(1. - x)
 
@@ -88,7 +92,7 @@ def get_bbox(center,size,rotate_y):
                          torch.cos(rotate_y)],
                         dim=1).view(-1, 3, 3)
     # eight points
-    h,w,l = size
+    h,w,l = size.transpose(0,1)
     xps = torch.stack([l/2, l/2, -l/2, -l/2, l/2, l/2, -l/2, -l/2],dim = 1)
     yps = torch.stack([h*0,h*0,h*0,h*0,-h,-h,-h,-h],dim = 1)
     zps = torch.stack([w/2, -w/2, -w/2, w/2, w/2, -w/2, -w/2, w/2],dim = 1)

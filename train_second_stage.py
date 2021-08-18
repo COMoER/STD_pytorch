@@ -1,28 +1,28 @@
+import os
+
 import torch
 import torch.nn as nn
-from torch.nn.parallel import DistributedDataParallel
-import torch.distributed
 
 from utils.dataset import pc_dataloader,std_collate_fn
 from torch.utils.data.dataloader import DataLoader
+from models.group_pointcloud import preprocess
+from models.common import in_side
 from models.STD import PGM,STD
 
-import os
+
 import datetime
 import logging
 from pathlib import Path
-import importlib
-import shutil
 from tqdm import tqdm
-import numpy as np
-import time
+
+
 
 def main():
     def log_string(str):
         logger.info(str)
         print(str)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2'
+
     # create dir
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
     experiment_dir = Path('/data/usr/zhengyu/exp')
@@ -53,13 +53,13 @@ def main():
     logger.addHandler(file_handler)
 
     # load first stage pt
-    frozen_model = PGM(0).cuda().eval()
-    first_stage_path = "2021-08-18_15-16"
+    frozen_model = PGM(0)
+    first_stage_path = "2021-08-18_16-15"
     checkpoint = torch.load( '/data/usr/zhengyu/exp/STD/{0}/checkpoints/best.pt'.format(first_stage_path))
     frozen_model.load_state_dict(checkpoint['model_state_dict'])
-
+    nn.DataParallel(frozen_model.cuda(1), [1, 2], 2).eval()
     # torch.distributed.init_process_group(backend="nccl")
-    model = STD().cuda()
+    model = nn.DataParallel(STD().cuda(1),[1,2],1)
 
     # model = nn.parallel.DistributedDataParallel(model)
 
@@ -86,7 +86,7 @@ def main():
 
     EPOCH = 50
 
-    data = pc_dataloader()
+    data = pc_dataloader(device=1)
     trainDataloader = DataLoader(data, batch_size=1, shuffle=True, collate_fn=std_collate_fn)
 
     cls_loss_sum = 0
@@ -106,7 +106,9 @@ def main():
             optimizer.zero_grad()
 
             proposals,features = frozen_model(points)
-            bbox,cls_loss,box_loss,iou_loss,closs = model(proposals,points,features,target)
+
+            # STD_SECOND forward
+            cls_loss,box_loss,iou_loss,closs = model(proposals,points,features,target)
             loss = cls_loss + box_loss + iou_loss + closs
             loss.backward()
             optimizer.step()
@@ -136,4 +138,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    # detect()

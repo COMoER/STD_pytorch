@@ -93,10 +93,11 @@ def NMS_proposal(proposals,score):
     proposals P,7
     '''
 
-    bbox = get_bbox(proposals[:,:3],proposals[:,3:6],proposals[:,6])[:,[0,1,3,4]] # bbox on BEV
+    bbox = get_bbox(proposals[:,:3],proposals[:,3:6],proposals[:,6])[0][:,[0,1,3,4]] # bbox on BEV
     mask = torchvision.ops.nms(bbox,score,iou_thres)
     nms_ps = proposals[mask]
-    return nms_ps
+    nms_score = score[mask]
+    return nms_ps,nms_score
 
 
 def align_anchor(anchors,radius,points,feature):

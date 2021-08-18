@@ -71,7 +71,7 @@ class PointNet(nn.Module):
 
         # proposal_classification
         self.fc6 = nn.Linear(512, 256)
-        self.fc7 = nn.Linear(256, 1) # 12 bins
+        self.fc7 = nn.Linear(256, 1)
         # self.bn3 = nn.BatchNorm1d(256)
         self.dropout = nn.Dropout(p=0.4)
 
