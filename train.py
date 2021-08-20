@@ -57,7 +57,7 @@ def main():
 
     # model = nn.parallel.DistributedDataParallel(model)
 
-    last_exp = "2021-08-16_18-48"
+    last_exp = "2021-08-18_19-33"
 
     try:
         checkpoint = torch.load(str(exp_dir.joinpath(last_exp)) + '/checkpoints/best.pt')
@@ -68,8 +68,8 @@ def main():
         log_string('No existing model, starting training from scratch...')
         start_epoch = 0
 
-    INTIAL_LR = 0.001
-    AFTER_LR = 0.0001
+    INTIAL_LR = 0.0001
+    AFTER_LR = 0.00005
 
     optimizer = torch.optim.Adam(
             model.parameters(),

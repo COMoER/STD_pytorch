@@ -17,7 +17,6 @@ def smooth_l1(deltas, targets, sigma = 3.0):
 
     if smooth_l1.ndimension() > 1:
         smooth_l1 = torch.sum(smooth_l1, dim = 1)
-
     return smooth_l1
 
 class BCEFocalLoss(nn.Module):
@@ -73,7 +72,7 @@ class Reg(nn.Module):
 
         loss_reg = smooth_l1(pred_reg,target)
 
-        return (loss_cls+loss_reg).view(-1)
+        return torch.mean((loss_cls+loss_reg).view(-1))
 
 def get_bbox(center,size,rotate_y):
     '''
@@ -99,8 +98,8 @@ def get_bbox(center,size,rotate_y):
     eps = torch.stack([xps,yps,zps],dim = 2) # N,8,3
     eps = torch.bmm(R_yaw,eps.transpose(1,2)).transpose(1,2) + center.view(-1,1,3)
     bev = eps[:,:4,[0,2]]
-    bbox = torch.stack([torch.min(bev[:,:,0],dim = 1)[0],torch.min(bev[:,:,1],dim=1)[0],eps[:,4,2],
-                        torch.max(bev[:,:,0],dim=1)[0],torch.max(bev[:,:,1],dim=1)[0],eps[:,0,2]],dim=1) # N,6
+    bbox = torch.stack([torch.min(bev[:,:,0],dim = 1)[0],torch.min(bev[:,:,1],dim=1)[0],eps[:,4,1],
+                        torch.max(bev[:,:,0],dim=1)[0],torch.max(bev[:,:,1],dim=1)[0],eps[:,0,1]],dim=1) # N,6
 
     return bbox,eps
 
@@ -143,7 +142,7 @@ def corner_loss(eps,gt_eps):
     :param gt_eps: N,8,3
     :return: corner loss
     '''
-    return torch.sum(torch.norm(eps-gt_eps,dim = 2),dim=1)
+    return torch.mean(torch.sum(torch.norm(eps-gt_eps,dim = 2),dim=1))
 
 
 

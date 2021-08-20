@@ -149,4 +149,5 @@ cython_debug/
 
 # User Define
 *.jpg
+!imgs/*
 

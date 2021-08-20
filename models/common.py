@@ -39,7 +39,7 @@ def in_side_numpy(src,center,size,rotate_y):
         points_per_g.append((R[id]@src_p[mask].T).T + center[id])
     return points_per_g
 
-def in_side(src,feature,center,size,rotate_y,need_mask = False):
+def in_side(src,feature,center,size,rotate_y,need_mask = False,delete_empty = False):
     '''
 
     points: B,N,4
@@ -72,11 +72,17 @@ def in_side(src,feature,center,size,rotate_y,need_mask = False):
     proposal_points = []
     if need_mask:
         proposal_masks = []
+    if delete_empty:
+        proposals_no_empty = []
     for proposal_id in range(len(size)):
         h,w,l = size[proposal_id]
         src_p = src[proposal_id].view(1,-1,3)
         mask = (src_p[:, :, 0] <= l / 2) & (src_p[:, :, 0] >= -l / 2) & (src_p[:, :, 1] <= 0) & (src_p[:, :, 1] >= -h) & (
                 src_p[:, :, 2] >= -w / 2) & (src_p[:, :, 2] <= w / 2) # inside
+        if delete_empty:
+            if not mask.any():
+                continue
+            proposals_no_empty.append(proposal_id)
         if isinstance(feature,torch.Tensor):
             proposal_points.append(torch.cat([src_p[mask],feature[mask]],dim = 1)) # the input of PointsPool
         else:
@@ -85,6 +91,8 @@ def in_side(src,feature,center,size,rotate_y,need_mask = False):
             proposal_masks.append(mask)
     if need_mask:
         return proposal_points,proposal_masks
+    elif delete_empty:
+        return proposal_points,proposals_no_empty
     else:
         return proposal_points
 def compute_target(gt,center,number,cls_id):

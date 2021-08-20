@@ -54,7 +54,7 @@ def main():
 
     # load first stage pt
     frozen_model = PGM(0)
-    first_stage_path = "2021-08-18_16-15"
+    first_stage_path = "2021-08-19_09-39"
     checkpoint = torch.load( '/data/usr/zhengyu/exp/STD/{0}/checkpoints/best.pt'.format(first_stage_path))
     frozen_model.load_state_dict(checkpoint['model_state_dict'])
     nn.DataParallel(frozen_model.cuda(1), [1, 2], 2).eval()
@@ -74,7 +74,7 @@ def main():
         log_string('No existing model, starting training from scratch...')
         start_epoch = 0
 
-    INTIAL_LR = 0.001
+    INTIAL_LR = 0.0005
     DELAY_RATE = 0.1
 
     optimizer = torch.optim.Adam(

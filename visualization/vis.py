@@ -5,6 +5,9 @@ import torch
 from models.STD import PGM
 import torch.nn as nn
 
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+
+
 PC_DIR = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/"
 LABEL_DIR = "/data/kitti/KITTI/training/label_2/"
 IMAGE_DIR = "/data/kitti/KITTI/data_object_image_2/training/image_2/"
@@ -150,6 +153,7 @@ def drawBox3d(label,P,im,color = (0,0,255)):
                         -np.sin(ry),0*ry,np.cos(ry)],axis = 1).reshape((-1,3,3))
     eps = np.matmul(R,eps).transpose((0,2,1)) + label[:,1:4].reshape(-1,1,3) # G,8,3
     bbox = eps.copy()
+    eps = eps[np.sum(eps[:,:,2] > 0,axis=1)>1]
     ones = np.ones((*eps.shape[:2],1))
     eps = np.concatenate([eps,ones],axis = 2).transpose((0,2,1)) # G,4,8
     ips = np.matmul(P,eps).transpose((0,2,1))
@@ -163,12 +167,12 @@ def drawBox3d(label,P,im,color = (0,0,255)):
     return im,bbox
 
 if __name__ == '__main__':
-    weights = "/data/usr/zhengyu/exp/STD/2021-08-18_19-36/checkpoints/best.pt"
+    weights = "/data/usr/zhengyu/exp/STD/2021-08-19_09-39/checkpoints/best.pt"
     model = PGM(0).cuda()
     checkpoint = torch.load(weights)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
-    for lidar_file in os.listdir(PC_DIR)[2000:]:
+    for lidar_file in os.listdir(PC_DIR)[1000:]:
         # raw point cloud
         T_l,T_image2,T_02 = load_calib(CALIB_DIR+lidar_file.split('.')[0]+'.txt')
         im = cv2.imread(IMAGE_DIR+lidar_file.split('.')[0]+'.png')
@@ -229,6 +233,8 @@ if __name__ == '__main__':
 
 
         save_path = "/home/zhengyu/STD/project_model_img/"
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
         cv2.imwrite(save_path+lidar_file.split('.')[0]+'_project.jpg',im)
         cv2.imwrite(save_path+lidar_file.split('.')[0]+'_bev.jpg',canvas)
 
