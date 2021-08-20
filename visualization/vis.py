@@ -12,6 +12,7 @@ PC_DIR = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/"
 LABEL_DIR = "/data/kitti/KITTI/training/label_2/"
 IMAGE_DIR = "/data/kitti/KITTI/data_object_image_2/training/image_2/"
 CALIB_DIR = "/data/kitti/KITTI/training/calib/"
+SAVE_PATH = "/home/zhengyu/STD/project_model_img/"
 POINTS = 8*1024 # 4k
 
 classes = ['Car','Pedestrian','Cyclist', 'Van', 'Truck', 'Person_sitting', 'Tram', 'Misc', 'DontCare']
@@ -230,13 +231,9 @@ if __name__ == '__main__':
 
         canvas = float2BEV(pc_camera,bbox,p_bbox,pps)
 
+        if not os.path.exists(SAVE_PATH):
+            os.mkdir(SAVE_PATH)
+        cv2.imwrite(SAVE_PATH+lidar_file.split('.')[0]+'_project.jpg',im)
+        cv2.imwrite(SAVE_PATH+lidar_file.split('.')[0]+'_bev.jpg',canvas)
 
-
-
-        save_path = "/home/zhengyu/STD/project_model_img/"
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-        cv2.imwrite(save_path+lidar_file.split('.')[0]+'_project.jpg',im)
-        cv2.imwrite(save_path+lidar_file.split('.')[0]+'_bev.jpg',canvas)
-
-        print("%s saved"%(save_path+lidar_file.split('.')[0]+'_project.jpg'))
+        print("%s saved"%(SAVE_PATH+lidar_file.split('.')[0]+'_project.jpg'))

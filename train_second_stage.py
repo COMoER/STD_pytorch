@@ -56,7 +56,6 @@ def main():
 
     # load first stage pt
     frozen_model = PGM(0)
-    first_stage_path =
     checkpoint = torch.load(PGM_WEIGHT_DIR)
     frozen_model.load_state_dict(checkpoint['model_state_dict'])
     nn.DataParallel(frozen_model.cuda(1), [1, 2], 2).eval()
