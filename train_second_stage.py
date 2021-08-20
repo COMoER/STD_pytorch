@@ -14,8 +14,10 @@ import datetime
 import logging
 from pathlib import Path
 from tqdm import tqdm
+import numpy as np
 
-
+EXP_DIR = '/data/usr/zhengyu/exp'
+PGM_WEIGHT_DIR = '/data/usr/zhengyu/exp/STD/2021-08-19_09-39/checkpoints/best.pt'
 
 def main():
     def log_string(str):
@@ -25,7 +27,7 @@ def main():
 
     # create dir
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
-    experiment_dir = Path('/data/usr/zhengyu/exp')
+    experiment_dir = Path(EXP_DIR)
 
     experiment_dir.mkdir(exist_ok=True)
 
@@ -54,8 +56,8 @@ def main():
 
     # load first stage pt
     frozen_model = PGM(0)
-    first_stage_path = "2021-08-19_09-39"
-    checkpoint = torch.load( '/data/usr/zhengyu/exp/STD/{0}/checkpoints/best.pt'.format(first_stage_path))
+    first_stage_path =
+    checkpoint = torch.load(PGM_WEIGHT_DIR)
     frozen_model.load_state_dict(checkpoint['model_state_dict'])
     nn.DataParallel(frozen_model.cuda(1), [1, 2], 2).eval()
     # torch.distributed.init_process_group(backend="nccl")
@@ -63,7 +65,7 @@ def main():
 
     # model = nn.parallel.DistributedDataParallel(model)
 
-    last_exp = "2021-08-16_18-48"
+    last_exp = "2021-08-20_11-18"
 
     try:
         checkpoint = torch.load(str(exp_dir.joinpath(last_exp)) + '/checkpoints/best.pt')
@@ -74,7 +76,7 @@ def main():
         log_string('No existing model, starting training from scratch...')
         start_epoch = 0
 
-    INTIAL_LR = 0.0005
+    INTIAL_LR = 0.0001
     DELAY_RATE = 0.1
 
     optimizer = torch.optim.Adam(
@@ -93,6 +95,8 @@ def main():
     box_loss_sum = 0
     iou_loss_sum = 0
     closs_sum = 0
+    cls_num = 0
+    target_num = 0
 
     for epoch in range(start_epoch, EPOCH):
         log_string('**** Epoch %d/%s ****' % (epoch+1,EPOCH))
@@ -112,16 +116,22 @@ def main():
             loss = cls_loss + box_loss + iou_loss + closs
             loss.backward()
             optimizer.step()
-            cls_loss_sum += cls_loss
-            box_loss_sum += box_loss
-            iou_loss_sum += iou_loss
-            closs_sum += closs
+            if not np.isclose(cls_loss.detach().cpu().numpy(),0).any():
+                cls_num += 1
+                cls_loss_sum += cls_loss
+                print("target %d cls loss is %.3f"%(i,cls_loss))
+            if not np.isclose(box_loss.detach().cpu().numpy(),0).any():
+                target_num += 1
+                box_loss_sum += box_loss
+                print("target %d box loss is %.3f"%(i,box_loss))
+                iou_loss_sum += iou_loss
+                closs_sum += closs
 
-
-        log_string('Training mean cls_loss: %f' % (cls_loss_sum / len(trainDataloader)))
-        log_string('Training mean box_loss: %f' % (box_loss_sum / len(trainDataloader)))
-        log_string('Training mean iou_loss: %f' % (iou_loss_sum / len(trainDataloader)))
-        log_string('Training mean closs: %f' % (closs_sum / len(trainDataloader)))
+        log_string('Training mean cls_loss: %f' % (cls_loss_sum / cls_num))
+        if target_num > 0:
+            log_string('Training mean box_loss: %f' % (box_loss_sum / target_num))
+            log_string('Training mean iou_loss: %f' % (iou_loss_sum / target_num))
+            log_string('Training mean closs: %f' % (closs_sum / target_num))
 
         if epoch % 5 == 0:
             logger.info('Save model...')

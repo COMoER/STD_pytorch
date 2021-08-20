@@ -72,7 +72,7 @@ class Reg(nn.Module):
 
         loss_reg = smooth_l1(pred_reg,target)
 
-        return torch.mean((loss_cls+loss_reg).view(-1))
+        return torch.mean((loss_cls+loss_reg))
 
 def get_bbox(center,size,rotate_y):
     '''
@@ -132,8 +132,28 @@ def compute_3DIOU(bbox,ground_truth):
     :param bbox: P,6
     :return: iou P,G
     '''
-
     return jaccard(bbox,ground_truth)
+
+
+def compute_3DIOU_one2one(box_a,box_b):
+    '''
+
+    :param ground_truth: N,6
+    :param bbox: N,6
+    :return: iou N,G
+    '''
+    max_xyz = torch.min(box_a[:, 3:], box_b[:, 3:])
+    min_xyz = torch.max(box_a[:, :3],box_b[:, :3])
+    inter = torch.clamp((max_xyz - min_xyz), min=0)
+    intersect = inter[:, 0] * inter[:, 1] * inter[:, 2]
+    area_a = ((box_a[:, 3] - box_a[:, 0]) *
+                  (box_a[:, 4] - box_a[:, 1]) *
+                  (box_a[:, 5] - box_a[:, 2]))
+    area_b = ((box_b[:, 3] - box_b[:, 0]) *
+                  (box_b[:, 4] - box_b[:, 1]) *
+                  (box_b[:, 5] - box_b[:, 2]))
+    union = area_a + area_b - intersect
+    return intersect/union
 
 def corner_loss(eps,gt_eps):
     '''

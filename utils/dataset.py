@@ -3,8 +3,15 @@ from torch.utils.data.dataset import Dataset
 import numpy as np
 import os
 import random
-SIZE = 200
-POINTS = 8*1024 # 8k
+# param
+SIZE = 200 # the size of dataset to train the model
+POINTS = 8*1024 # 8k the number of points sampled in each point cloud
+TRAIN_PC_DIR = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/"
+TRAIN_LABEL_DIR = "/data/kitti/KITTI/training/label_2/"
+TRAIN_CALIB_DIR = "/data/kitti/KITTI/training/calib/"
+
+
+
 torch.random.manual_seed(0)
 np.random.seed(0)
 from tqdm import tqdm
@@ -38,11 +45,17 @@ def convert(label):
 
 
 class pc_dataloader(Dataset):
-    def __init__(self,location = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/",
-                 label_location = "/data/kitti/KITTI/training/label_2/",
-                 calib_location = "/data/kitti/KITTI/training/calib/",
+    def __init__(self,location = None,
+                 label_location = None,
+                 calib_location = None,
                     device = 0):
         super(pc_dataloader,self).__init__()
+        if not isinstance(location,str):
+            location = TRAIN_PC_DIR
+        if not isinstance(label_location,str):
+            label_location = TRAIN_LABEL_DIR
+        if not isinstance(calib_location,str):
+            calib_location = TRAIN_CALIB_DIR
         self._device = torch.device('cuda',device)
 
         print("[INFO] loading Dataset")

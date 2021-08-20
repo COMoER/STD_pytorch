@@ -4,14 +4,14 @@ from models.backbone import PointNet2,PointNet
 from models.common import compute_proposal,in_side,compute_target,Box_branch,IOU_branch,compute_box,compute_reg
 from utils.anchor import NMS,align_anchor,assign_anchor,NMS_proposal
 from models.group_pointcloud import preprocess,PointsPool
-from utils.loss import BCEFocalLoss,BCE,Reg,get_bbox,corner_loss,smooth_l1,compute_3DIOU
+from utils.loss import BCEFocalLoss,BCE,Reg,get_bbox,corner_loss,smooth_l1,compute_3DIOU,compute_3DIOU_one2one
 import numpy as np
 
 # classes
 # 'Car','Pedestrian','Cyclist'
 
 IOU_UP_THRES = 0.3
-IOU_DOWN_THRES = 0.2
+IOU_DOWN_THRES = 0.1
 MAX_PROPOSAL_SIZE = 128
 
 class PGM(nn.Module):
@@ -115,27 +115,33 @@ class STD(nn.Module):
 
         bbox,eps = get_bbox(bbox_seven[:,:3],bbox_seven[:,3:6],bbox_seven[:,6])
 
+        p_bbox,_ = get_bbox(proposals[:,:3],proposals[:,3:6],proposals[:,6])
+
         if self.training:
             if label.shape[0]:
                 # use ground_truth 3d IOU to assign the pred bbox
                 gt_bbox, gt_eps = get_bbox(label[:, 1:4], label[:, 4:7], label[:, 7])
-                gt_iou = compute_3DIOU(bbox, gt_bbox)
-                p_iou_max, gt_assign = torch.max(gt_iou, dim=1)  # P
+                gt_p_iou = compute_3DIOU(p_bbox,gt_bbox) # compute iou between proposal and ground_truth
+
+                p_iou_max, gt_assign = torch.max(gt_p_iou, dim=1)  # P
                 p_pos = p_iou_max >= IOU_UP_THRES
                 p_neg = p_iou_max <= IOU_DOWN_THRES
                 N = torch.sum(p_pos)
                 if N > 0:
+                    bbox_iou = compute_3DIOU_one2one(bbox[p_pos],gt_bbox[gt_assign[p_pos]]) # (N,) iou between bbox and gt
+
                     reg, cls = compute_reg(proposals[p_pos], label[gt_assign[p_pos]])
 
-                    iou_loss = smooth_l1(pred_iou[p_pos].view(1,-1), p_iou_max[p_pos].view(1,-1))
+                    iou_loss = smooth_l1(pred_iou[p_pos].view(1,-1), bbox_iou.view(1,-1))
 
                     closs = corner_loss(eps[p_pos], gt_eps[gt_assign[p_pos]])
 
                     box_loss = self.box_loss(pred_reg[p_pos], pred_cls[p_pos], reg, cls)
+
                 else:
                     box_loss = torch.zeros(torch.Size((1,)),dtype = torch.float,device=proposals.device)
                     iou_loss = torch.zeros(torch.Size((1,)),dtype = torch.float,device=proposals.device)
-                    closs = torch.zeros(torch.Size((1,)),dtype = torch.float,device=proposals.device,requires_grad=True)
+                    closs = torch.zeros(torch.Size((1,)),dtype = torch.float,device=proposals.device)
                 cls_loss = self.cls_loss(score.view(-1), p_pos.float())
             else:
                 zeros = torch.zeros(torch.Size((proposals.shape[0],)),dtype = torch.float,device=proposals.device)

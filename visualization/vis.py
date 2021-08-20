@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import os
 import torch
-from models.STD import PGM
+from models.STD import STD,PGM
 import torch.nn as nn
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
@@ -169,6 +169,7 @@ def drawBox3d(label,P,im,color = (0,0,255)):
 if __name__ == '__main__':
     weights = "/data/usr/zhengyu/exp/STD/2021-08-19_09-39/checkpoints/best.pt"
     model = PGM(0).cuda()
+    model = STD
     checkpoint = torch.load(weights)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
@@ -221,7 +222,7 @@ if __name__ == '__main__':
 
         # using model to predict proposal
         pc = torch.from_numpy(pc_input).view(-1,4).to(torch.device('cuda:0'))
-        proposals,_ = model(pc.view(1,-1,4),label_model.view(1,-1,9))
+        proposals,feature = model(pc.view(1,-1,4),label_model.view(1,-1,9))
         proposals = proposals.detach().cpu().numpy()
         proposals = np.concatenate([np.ones((proposals.shape[0],1)),proposals],axis = 1)
 

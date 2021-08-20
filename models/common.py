@@ -145,9 +145,9 @@ def compute_reg(proposals,gt):
     :param label: N,8
     :return: reg N,7 cls N
     '''
-    rotate_y = gt[:,7] - proposals[:,6]
-    cls = torch.floor((rotate_y + np.pi) / bin_angle).float()
-    angle_reg = (rotate_y + np.pi) - cls*bin_angle
+    rotate_y = ((gt[:,7] - proposals[:,6]) + np.pi)%(2*np.pi) # 2*pi is a loop
+    cls = torch.floor(rotate_y / bin_angle).float()
+    angle_reg = rotate_y - cls*bin_angle
     l_reg = gt[:,1:4] - proposals[:,:3]
     size = proposals[:,3:6]
     size_reg = (gt[:,4:7] - size)/size

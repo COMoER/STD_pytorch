@@ -1,12 +1,10 @@
 import torch
-from utils.dataset import pc_dataloader,std_collate_fn
-from torch.utils.data.dataloader import DataLoader
 from models.STD import PGM,STD
 import numpy as np
 
 
 class STD_whole():
-    def __init__(self,weight1="/data/usr/zhengyu/exp/STD/2021-08-16_23-22/checkpoints/best.pt",
+    def __init__(self,weight1="/data/usr/zhengyu/exp/STD//checkpoints/best.pt",
                  weight2 = "/data/usr/zhengyu/exp/STD_SECOND/2021-08-16_23-22/checkpoints/best.pt"):
         self.model1 = PGM(0).cuda().eval()
         checkpoint = torch.load(weight1)

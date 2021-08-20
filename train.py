@@ -17,6 +17,8 @@ from tqdm import tqdm
 import numpy as np
 import time
 
+EXP_DIR = '/data/usr/zhengyu/exp'
+
 def main():
     def log_string(str):
         logger.info(str)
@@ -25,7 +27,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2'
     # create dir
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
-    experiment_dir = Path('/data/usr/zhengyu/exp')
+    experiment_dir = Path(EXP_DIR)
 
     experiment_dir.mkdir(exist_ok=True)
 
