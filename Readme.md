@@ -36,7 +36,7 @@ And the corresponding project image
 
 red is ground truth, blue is the predicted bounding box and green is the corresponding proposal
 
-![006181_project](imgs\006181_project.jpg)
+<img src="imgs\006181_project.jpg" alt="006181_project" style="zoom:67%;" />
 
 ## Usage
 
