@@ -61,5 +61,5 @@ python train.py # train the PGM
 python train_second_stage.py # train the second stage model
 ```
 
-
+and you can use detect.py to detect your data, the parameters can be adjusted in that file
 
