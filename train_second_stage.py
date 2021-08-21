@@ -107,9 +107,8 @@ def main():
         loss_sum = 0
         for i, (points, target) in tqdm(enumerate(trainDataloader), total=len(trainDataloader), smoothing=0.9):
             optimizer.zero_grad()
-
-            proposals,features = frozen_model(points)
-
+            with torch.no_grad():
+                proposals,features = frozen_model(points)
             # STD_SECOND forward
             cls_loss,box_loss,iou_loss,closs = model(proposals,points,features,target)
             loss = cls_loss + box_loss + iou_loss + closs
@@ -143,6 +142,17 @@ def main():
             }
             torch.save(state, savepath)
             log_string('Saving model....')
+    # save the last model
+    logger.info('Save model...')
+    savepath = str(checkpoints_dir) + '/best.pt'
+    log_string('Saving at %s' % savepath)
+    state = {
+        'epoch': EPOCH,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+    }
+    torch.save(state, savepath)
+    log_string('Saving last model....')
 
 
 if __name__ == '__main__':

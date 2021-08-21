@@ -122,6 +122,17 @@ def main():
             }
             torch.save(state, savepath)
             log_string('Saving model....')
+    # save the last model
+    logger.info('Save model...')
+    savepath = str(checkpoints_dir) + '/best.pt'
+    log_string('Saving at %s' % savepath)
+    state = {
+        'epoch': EPOCH,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+    }
+    torch.save(state, savepath)
+    log_string('Saving last model....')
 
 if __name__ == '__main__':
     main()
