@@ -1,19 +1,5 @@
 import numpy as np
 import cv2
-import os
-import torch
-from models.STD import STD,PGM
-import torch.nn as nn
-
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-
-
-PC_DIR = "/data/kitti/KITTI/data_object_velodyne/training/velodyne/"
-LABEL_DIR = "/data/kitti/KITTI/training/label_2/"
-IMAGE_DIR = "/data/kitti/KITTI/data_object_image_2/training/image_2/"
-CALIB_DIR = "/data/kitti/KITTI/training/calib/"
-SAVE_PATH = "/home/zhengyu/STD/project_model_img/"
-POINTS = 8*1024 # 4k
 
 classes = ['Car','Pedestrian','Cyclist', 'Van', 'Truck', 'Person_sitting', 'Tram', 'Misc', 'DontCare']
 
@@ -22,8 +8,7 @@ def in_side(src,label):
 
     src: N,4
     label:G,9
-
-    return list of PointsPool input for each proposal
+    return list of  points in each ground truth
     '''
     src = src[:,:3]
     # h = size[:,0] # y
@@ -47,33 +32,28 @@ def in_side(src,label):
 
 
 
-def float2BEV(ps,bbox,p_bbox,inside):
+def float2BEV(ps,all_bbox:list,inside,all_color:list):
     '''
-
     :param ps: N,4 x,y,z,r BEV is X-Z
-    bbox G,8,3
-    :return:
+    :param all_bbox: list[N,8,3]
+    :param inside: points inside the ground truth
+    :param color: list[tuple of color]
+    :return: the BEV image
     '''
+    # range
     x_min = np.min(ps[:, 0])
     x_max = np.max(ps[:, 0])
     y_min = np.min(ps[:, 2])
     y_max = np.max(ps[:, 2])
     x_range = x_max - x_min
     y_range = y_max - y_min
-    ps[:, 0] = (ps[:, 0] - x_min) / x_range * 640
-    ps[:, 2] = 640-(ps[:, 2] - y_min) / y_range * 640
+
+    # create an empty BEV canvas
     canvas = np.zeros((640, 640,3), np.uint8)
 
-    bbox[:,:,0] = (bbox[:,:, 0] - x_min) / x_range * 640
-    bbox[:,:,2] = 640-(bbox[:,:, 2] - y_min) / y_range * 640
-
-    bbox = bbox[:,:,[0,2]]
-
-    p_bbox[:,:,0] = (p_bbox[:,:, 0] - x_min) / x_range * 640
-    p_bbox[:,:,2] = 640-(p_bbox[:,:, 2] - y_min) / y_range * 640
-
-    p_bbox = p_bbox[:,:,[0,2]]
-
+    # points
+    ps[:, 0] = (ps[:, 0] - x_min) / x_range * 640
+    ps[:, 2] = 640-(ps[:, 2] - y_min) / y_range * 640
     for p in ps:
         cv2.circle(canvas,tuple(p[[0,2]].astype(int)),1,(0,255,0),-1)
 
@@ -85,24 +65,22 @@ def float2BEV(ps,bbox,p_bbox,inside):
     for p in inside:
         cv2.circle(canvas,tuple(p.astype(int)),1,(255,255,255),-1)
 
-    for g in bbox:
-        g = g.astype(int)
-        for i in range(4):
-            cv2.line(canvas,tuple(g[i]),tuple(g[(i+1)%4]),(0,0,255),2)
-            cv2.line(canvas,tuple(g[i+4]),tuple(g[(i+1)%4+4]),(0,0,255),2)
-            cv2.line(canvas,tuple(g[i]),tuple(g[i+4]),(0,0,255),2)
+    for i,(bbox,color) in enumerate(zip(all_bbox,all_color)):
+        bbox[:, :, 0] = (bbox[:, :, 0] - x_min) / x_range * 640
+        bbox[:, :, 2] = 640 - (bbox[:, :, 2] - y_min) / y_range * 640
 
-    for g in p_bbox:
-        g = g.astype(int)
-        for i in range(4):
-            cv2.line(canvas,tuple(g[i]),tuple(g[(i+1)%4]),(255,0,0),2)
-            cv2.line(canvas,tuple(g[i+4]),tuple(g[(i+1)%4+4]),(255,0,0),2)
-            cv2.line(canvas,tuple(g[i]),tuple(g[i+4]),(255,0,0),2)
+        bbox = bbox[:, :, [0, 2]]
+        for g in bbox:
+            g = g.astype(int)
+            for i in range(4):
+                cv2.line(canvas,tuple(g[i]),tuple(g[(i+1)%4]),color,2)
+                cv2.line(canvas,tuple(g[i+4]),tuple(g[(i+1)%4+4]),color,2)
+                cv2.line(canvas,tuple(g[i]),tuple(g[i+4]),color,2)
 
     return canvas
 def load_calib(calib_path):
     '''
-    :param calib_path:
+    :param calib_path:the calibration file path
     :return: transform from lidar to camera0, transform from lidar to image2, transform from camera0 to image2
     '''
     with open(calib_path,'r') as f:
@@ -140,9 +118,11 @@ def convert(label):
 def drawBox3d(label,P,im,color = (0,0,255)):
     '''
 
-    :param label: G,9
-    :param P: 4*4
-    :return: im
+    :param label: N*7 the box you want to draw on the image [cls,center,size,rotate_y]
+    :param P: 4*4 transform matrix
+    :param im: the image to draw box on it
+    :param color: the corresponding color to each group of boxes
+    :return: bbox N,8,3 using eight points format to present the boxes
     '''
     h,w,l = label[:,4:7].T
     xps = np.stack([l/2, l/2, -l/2, -l/2, l/2, l/2, -l/2, -l/2],axis = 1)
@@ -165,75 +145,4 @@ def drawBox3d(label,P,im,color = (0,0,255)):
             cv2.line(im,tuple(g[i]),tuple(g[(i+1)%4]),color,2)
             cv2.line(im,tuple(g[i+4]),tuple(g[(i+1)%4+4]),color,2)
             cv2.line(im,tuple(g[i]),tuple(g[i+4]),color,2)
-    return im,bbox
-
-if __name__ == '__main__':
-    weights = "/data/usr/zhengyu/exp/STD/2021-08-19_09-39/checkpoints/best.pt"
-    model = PGM(0).cuda()
-    model = STD
-    checkpoint = torch.load(weights)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
-    for lidar_file in os.listdir(PC_DIR)[1000:]:
-        # raw point cloud
-        T_l,T_image2,T_02 = load_calib(CALIB_DIR+lidar_file.split('.')[0]+'.txt')
-        im = cv2.imread(IMAGE_DIR+lidar_file.split('.')[0]+'.png')
-        H,W,_ = im.shape
-        pc = np.fromfile(PC_DIR + lidar_file, dtype=np.float32).reshape(-1, 4)[:,:3]
-        indices = np.random.choice(range(len(pc)), POINTS)
-        pc = pc[indices]
-        pc_input = np.fromfile(PC_DIR + lidar_file, dtype=np.float32).reshape(-1, 4)[indices]
-        pc_input[:, :3] = (T_l[:3, :3] @ (pc[:, :3].T)).T + T_l[:3, 3].reshape(1, 3)
-        pc = np.concatenate([pc,np.ones((pc.shape[0],1))],axis = 1)
-
-        pc_camera = (T_l@(pc.T)).T
-
-        ips = (T_image2@(pc.T)).T # N,4
-        ips = (ips/ips[:,2].reshape(-1,1))[:,:2]
-
-        mask = np.logical_and(np.logical_and(ips[:,0]>=0,ips[:,0]<=W),np.logical_and(ips[:,1]>=0,ips[:,1]<=H))
-
-        # for p in ips[mask]:
-        #     cv2.circle(im,tuple(p.astype(int)),2,(0,255,0),-1)
-
-
-
-
-        label = convert(np.loadtxt(LABEL_DIR+lidar_file.split('.')[0]+'.txt',dtype = object,delimiter=' ').reshape(-1,15))
-        label_model = torch.from_numpy(label).view(-1,9).to(torch.device('cuda:0'))
-        if label.shape[0] == 0:
-            continue
-        pc_per_g = in_side(pc_camera,label)
-
-        pcs = np.concatenate(pc_per_g,axis = 0) # N,3
-
-        im,bbox = drawBox3d(label,T_02,im)
-
-        pps = pcs.copy()
-
-
-        pcs = np.concatenate([pcs,np.ones((pcs.shape[0],1))],axis = 1)
-        ips = (T_image2@np.linalg.inv(T_l)@(pcs.T)).T # N,4
-        ips = (ips/ips[:,2].reshape(-1,1))[:,:2]
-        mask = np.logical_and(np.logical_and(ips[:, 0] >= 0, ips[:, 0] <= W),
-                              np.logical_and(ips[:, 1] >= 0, ips[:, 1] <= H))
-
-        for p in ips[mask]:
-            cv2.circle(im,tuple(p.astype(int)),2,(0,255,0),-1)
-
-        # using model to predict proposal
-        pc = torch.from_numpy(pc_input).view(-1,4).to(torch.device('cuda:0'))
-        proposals,feature = model(pc.view(1,-1,4),label_model.view(1,-1,9))
-        proposals = proposals.detach().cpu().numpy()
-        proposals = np.concatenate([np.ones((proposals.shape[0],1)),proposals],axis = 1)
-
-        im,p_bbox = drawBox3d(proposals,T_02,im,(255,0,0))
-
-        canvas = float2BEV(pc_camera,bbox,p_bbox,pps)
-
-        if not os.path.exists(SAVE_PATH):
-            os.mkdir(SAVE_PATH)
-        cv2.imwrite(SAVE_PATH+lidar_file.split('.')[0]+'_project.jpg',im)
-        cv2.imwrite(SAVE_PATH+lidar_file.split('.')[0]+'_bev.jpg',canvas)
-
-        print("%s saved"%(SAVE_PATH+lidar_file.split('.')[0]+'_project.jpg'))
+    return bbox

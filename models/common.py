@@ -135,18 +135,18 @@ def compute_box(proposals,reg,cls):
     '''
     size = proposals[:,3:6] + reg[:,3:6]
     center = proposals[:,:3] + reg[:,:3]
-    rotate_y = proposals[:,6] + torch.argmax(cls,dim = 1)[0].float()*bin_angle + reg[:,6]
+    rotate_y = proposals[:,6] + (torch.argmax(cls,dim = 1)[0]-6).float()*bin_angle + reg[:,6]
     return torch.cat([center,size,rotate_y.view(-1,1)],dim = 1)
 
 def compute_reg(proposals,gt):
     '''
 
-    :param proposals: N,8
+    :param proposals: N,7
     :param label: N,8
     :return: reg N,7 cls N
     '''
-    rotate_y = ((gt[:,7] - proposals[:,6]) + np.pi)%(2*np.pi) # 2*pi is a loop
-    cls = torch.floor(rotate_y / bin_angle).float()
+    rotate_y = (gt[:,7] - proposals[:,6] + np.pi)%(2*np.pi) # 2*pi is a loop
+    cls = (torch.floor(rotate_y / bin_angle)).float()
     angle_reg = rotate_y - cls*bin_angle
     l_reg = gt[:,1:4] - proposals[:,:3]
     size = proposals[:,3:6]

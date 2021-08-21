@@ -66,6 +66,7 @@ class Reg(nn.Module):
         :param pred_reg: B,7
         :param pred_cls: B,12
         :param target: B,7 location,size,angle_reg
+        :param cls_target angle target cls_num
         :return:
         '''
         loss_cls = F.cross_entropy(pred_cls,cls_target)

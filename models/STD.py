@@ -13,9 +13,10 @@ import numpy as np
 IOU_UP_THRES = 0.3
 IOU_DOWN_THRES = 0.1
 MAX_PROPOSAL_SIZE = 128
+PROPOSAL_SIZE_EVAL = 64
 
 class PGM(nn.Module):
-    def __init__(self,cls):
+    def __init__(self,cls,second_stage_training = True):
         super(PGM, self).__init__()
         self.model = PointNet2(1)
         self.model2 = PointNet()
@@ -23,6 +24,7 @@ class PGM(nn.Module):
         self.focal_loss = BCEFocalLoss()
         self.cls_loss = BCE()
         self.reg_loss = Reg()
+        self.second_stage_training = second_stage_training
     def forward(self,points, label = None):
         # xyz B,N,4
         scores, features = self.model(points)
@@ -77,7 +79,10 @@ class PGM(nn.Module):
                 # using NMS to delete extra proposal
                 proposals,scores_anc = NMS_proposal(proposals,scores_anc)
                 index = torch.argsort(scores_anc,descending=True)
-                proposals = proposals[index[:min(MAX_PROPOSAL_SIZE,len(index)-1)]]
+                if self.second_stage_training:
+                    proposals = proposals[index[:min(MAX_PROPOSAL_SIZE,len(index)-1)]]
+                else:
+                    proposals = proposals[index[:min(PROPOSAL_SIZE_EVAL, len(index) - 1)]]
             return proposals,features
 
 class STD(nn.Module):
@@ -95,7 +100,8 @@ class STD(nn.Module):
         :param label: the ground_truth for each proposal G,9
         :return:
         '''
-        label = label.view(-1,9)
+        if self.training:
+            label = label.view(-1,9)
         proposal_points,proposals_no_empty = in_side(xyz, features, proposals[:, :3], proposals[:, 3:6], proposals[:, 6],delete_empty=True)
         proposals = proposals[proposals_no_empty]
         # preprocess for PointsPool
@@ -157,7 +163,7 @@ class STD(nn.Module):
 
             return cls_loss,box_loss,iou_loss,closs
         else:
-            torch.cat([score,pred_iou,bbox_seven],dim = 1) # [cls_score,iou_score,center,size,rotate_y]
+            return torch.cat([score,pred_iou,proposals,bbox_seven],dim = 1) # [cls_score,iou_score,center,size,rotate_y]
 
 
 

@@ -24,7 +24,19 @@ the following is a demo of the generated proposal
 
 Due to the limited data we used for training(200 raw point clouds), the model may not perform well in the angle prediction 
 
+### Second Stage PointsPool + Box Prediction
 
+The prediction are as following:
+
+BEV red is the ground truth white is the proposal and (may not be seen) blue is the predicted bounding box
+
+<img src="D:\UniversityStudy\LabPractice\STD\imgs\006181_bev.jpg" alt="006181_bev" style="zoom:50%;" />
+
+And the corresponding project image
+
+red is ground truth, blue is the predicted bounding box and green is the corresponding proposal
+
+![006181_project](D:\UniversityStudy\LabPractice\STD\imgs\006181_project.jpg)
 
 ## Usage
 
