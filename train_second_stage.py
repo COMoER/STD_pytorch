@@ -75,7 +75,7 @@ def main():
         log_string('No existing model, starting training from scratch...')
         start_epoch = 0
 
-    INTIAL_LR = 0.0001
+    INTIAL_LR = 0.0005
     DELAY_RATE = 0.1
 
     optimizer = torch.optim.Adam(

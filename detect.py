@@ -41,8 +41,8 @@ if __name__ == '__main__':
     CALIB_DIR = "/data/kitti/KITTI/training/calib/"
     SAVE_PATH = "/data/usr/zhengyu/project_model_img/"
     POINTS = 8 * 1024  # 4k
-    WEIGHTS_PATH = "/data/usr/zhengyu/STD_results/weights/best.pt"
-    CONF_THRES = 0.2
+    WEIGHTS_PATH = "/data/usr/zhengyu/STD_results/weights/2021-08-22_08-55/best.pt"
+    CONF_THRES = 0.4
     IOU_THRES = 0.3
 
     net = STD_whole(WEIGHTS_PATH)
